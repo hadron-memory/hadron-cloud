@@ -1,0 +1,11 @@
+# /etc/systemd/system/pg-backup.service
+[Unit]
+Description=Nightly Postgres backup (pg_dump to /root/backup)
+After=postgresql@17-main.service
+Requisite=postgresql@17-main.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pg-backup.sh
+Nice=10
+IOSchedulingClass=idle

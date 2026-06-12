@@ -1,0 +1,13 @@
+# /etc/systemd/system/pg-backup.timer
+[Unit]
+Description=Run pg-backup nightly
+
+[Timer]
+# 09:15 UTC = quiet hours for US users; randomized a bit to avoid
+# colliding with other timers.
+OnCalendar=*-*-* 09:15:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

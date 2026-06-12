@@ -1,0 +1,64 @@
+#cloud-config
+# Bootstrap for a Hadron host (Debian 13). Mirrors how alpha is set up:
+# - Docker CE from docker.com
+# - PostgreSQL 17 + pgvector from Debian
+# - Redis from packages.redis.io
+# - NATS from Debian
+# - MongoDB 8.0 from repo.mongodb.org (ubuntu/noble channel works on Debian 13)
+#
+# After first boot, services bind localhost only. Binding the Docker
+# gateway IPs (172.17.0.1, 172.18.0.1) happens after Komodo is set up
+# and its network exists — see hosts/alpha/README.md in this repo.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - htop
+  - jq
+  - ncdu
+  - postgresql-17
+  - postgresql-17-pgvector
+  - nats-server
+
+write_files:
+  # Bare-metal services that bind Docker gateway IPs must start after
+  # Docker, or they silently come up localhost-only (see alpha runbook).
+  - path: /etc/systemd/system/postgresql@17-main.service.d/wait-for-docker.conf
+    content: |
+      [Unit]
+      After=docker.service
+      Wants=docker.service
+  - path: /etc/systemd/system/redis-server.service.d/wait-for-docker.conf
+    content: |
+      [Unit]
+      After=docker.service
+      Wants=docker.service
+  - path: /etc/systemd/system/nats-server.service.d/wait-for-docker.conf
+    content: |
+      [Unit]
+      After=docker.service
+      Wants=docker.service
+
+runcmd:
+  # Docker CE
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian trixie stable" > /etc/apt/sources.list.d/docker.list
+  # Redis (official repo — newer than Debian's)
+  - curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb trixie main" > /etc/apt/sources.list.d/redis.list
+  # MongoDB 8.0 (no native trixie channel; the ubuntu/noble one works)
+  - curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+  - echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-8.0.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin redis-server mongodb-org
+  - systemctl daemon-reload
+  - systemctl enable --now docker mongod redis-server nats-server
+  # Redis: containers reach it via host.docker.internal; keep RDB snapshots, add AOF
+  - sed -i 's/^appendonly no/appendonly yes/' /etc/redis/redis.conf
+  - systemctl restart redis-server
