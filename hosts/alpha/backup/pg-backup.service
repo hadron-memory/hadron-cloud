@@ -1,6 +1,6 @@
 # /etc/systemd/system/pg-backup.service
 [Unit]
-Description=Nightly Postgres backup (pg_dump to /root/backup)
+Description=Hourly Postgres backup (pg_dump to /root/backup)
 After=postgresql@17-main.service
 Requisite=postgresql@17-main.service
 
