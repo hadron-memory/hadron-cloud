@@ -84,21 +84,24 @@ ssh root@alpha 'rclone ls hetzner:hadron-internal/alpha/ | tail'   # offsite con
 
 ## Restore
 
-Dumps are Postgres custom format (`-Fc`), restored with `pg_restore`.
+Dumps are Postgres custom format (`-Fc`), restored with `pg_restore`. `/root`
+is `0700`, so the `postgres` user cannot open files there directly — feed every
+file via shell redirection (`<`) so the root shell opens it before privileges
+drop to `postgres` (same trick the backup script uses).
 
 ```bash
-# If restoring from offsite, pull the dump first:
-ssh root@alpha 'rclone copy hetzner:hadron-internal/alpha/hadron-alpha-<TS>.dump /tmp/'
+# If restoring from offsite, pull the dump into /root/backup first:
+ssh root@alpha 'rclone copy hetzner:hadron-internal/alpha/hadron-alpha-<TS>.dump /root/backup/'
 
 # Inspect the TOC
 sudo -u postgres pg_restore -l < /root/backup/hadron-alpha-<TS>.dump | head
 
 # Restore roles first if rebuilding from scratch
-sudo -u postgres psql -f /root/backup/globals-alpha-<TS>.sql
+sudo -u postgres psql < /root/backup/globals-alpha-<TS>.sql
 
 # Restore into a fresh DB (dumps are made WITHOUT --clean)
 sudo -u postgres createdb hadron_restore -O hadron
-sudo -u postgres pg_restore -d hadron_restore /root/backup/hadron-alpha-<TS>.dump
+sudo -u postgres pg_restore -d hadron_restore < /root/backup/hadron-alpha-<TS>.dump
 ```
 
 **Encrypted columns won't decrypt** unless `HADRON_ENCRYPTION_KEY` matches

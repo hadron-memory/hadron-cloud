@@ -12,7 +12,7 @@
 #   then prunes remote objects older than OFFSITE_RETENTION_DAYS. The local
 #   backup completes and is pruned BEFORE upload, so a network/upload failure
 #   never endangers the local dump; it only makes the systemd unit report
-#   failure (visible in `journalctl -u pg-backup`).
+#   failure (visible in `journalctl -u pg-backup.service`).
 set -euo pipefail
 
 BACKUP_DIR=/root/backup
@@ -51,5 +51,8 @@ rclone copy "$BACKUP_DIR" "$REMOTE/" \
 echo "uploaded: $REMOTE/ (this run: ${TS})"
 
 # --- Offsite retention -----------------------------------------------------
+# Same --include filters as the upload: never prune backups of other kinds
+# (e.g. a future MongoDB or host-config dump) that may share the alpha/ prefix.
 rclone delete "$REMOTE/" --min-age "${OFFSITE_RETENTION_DAYS}d" --rmdirs \
+  --include "*-${HOST}-*.dump" --include "globals-${HOST}-*.sql" \
   | sed 's/^/offsite-pruned: /' || true

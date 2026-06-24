@@ -3,7 +3,7 @@
 Description=Run pg-backup hourly
 
 [Timer]
-# Top-of-hour at :15 UTC, every hour. RandomizedDelaySec spreads the start
+# Every hour at :15 UTC. RandomizedDelaySec spreads the start
 # to avoid colliding with other timers; Persistent catches missed runs
 # (e.g. after the host was down) on next boot.
 OnCalendar=*-*-* *:15:00 UTC
