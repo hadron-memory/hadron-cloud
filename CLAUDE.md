@@ -20,9 +20,12 @@ not an application** — there's no build/test step; changes here touch real inf
 ## The alpha host (read the README first)
 
 `ssh root@alpha`. Apps (hadron-server, hadron-portal, hadron-cms, plus kcu / mrserver / tapco)
-run in **Docker via Komodo** behind **Traefik**; **PostgreSQL 17, MongoDB, Redis, and NATS run
-bare metal**. The on-host runbook lives at `/root/CLAUDE.md` on alpha, and the Komodo deploy
-workflow at `~/komodo/setup.md` there — consult those for live operations.
+run in **Docker via Komodo** behind **Traefik**; the **Hadron capability tools**
+(hadrontool-pdf, hadrontool-ms-exchange) run the same way but **internal-only** (no Traefik
+route — reached by container name on `komodo_default`); **PostgreSQL 17, MongoDB, Redis, and
+NATS run bare metal**. Postgres hosts core's `hadron` DB plus the ms-exchange tool's own
+`hadrontool_ms_exchange` DB. The on-host runbook lives at `/root/CLAUDE.md` on alpha, and the
+Komodo deploy workflow at `~/komodo/setup.md` there — consult those for live operations.
 
 ## Use of Hadron
 
@@ -41,6 +44,10 @@ Query Hadron before changing infra: `hadron_find_nodes` for the service/symptom,
 - **Bare-metal services that bind Docker gateway IPs need a systemd drop-in ordering them after
   `docker.service`** — otherwise they boot before the bridge interfaces exist and silently fall
   back to localhost-only (containers then can't reach them via `host.docker.internal`).
+- **The container side of `host.docker.internal` is NOT automatic on Linux**: every NEW Komodo
+  deployment that dials bare-metal services must pass
+  `--add-host=host.docker.internal:host-gateway` in its extra args — a fresh deployment does not
+  inherit it (cost hadrontool-ms-exchange its first boot, 2026-07-08).
 - **Secrets live in Doppler**, injected at container start (`doppler run --`) — never in the repo.
 - DB ports are firewalled externally (Hetzner); access is via SSH. Embeddings run on AWS SageMaker.
 - **Single host for now** is a deliberate decision, and MicroMentor stays on alpha for now —

@@ -18,6 +18,11 @@ Infrastructure artifacts for the Hadron Memory platform
 `ssh root@alpha`. The host carries:
 
 - **Hadron**: `hadron-server`, `hadron-portal`, `hadron-cms` (Docker, deployed by Komodo)
+- **Hadron capability tools**: `hadrontool-pdf`, `hadrontool-ms-exchange`
+  (Docker via Komodo, **internal-only** — no Traefik route; hadron-server
+  reaches them by container name on `komodo_default`). The ms-exchange tool
+  has its own Postgres database, `hadrontool_ms_exchange` (role
+  `hadrontool_msx`), on the bare-metal instance — never core's `hadron` DB.
 - **Other apps that must stay**: `kcu`, `mrserver`, `tapco` (Market Railz)
 - **Komodo** + **Traefik**: deployment manager and reverse proxy
 - **Bare metal services**: PostgreSQL 17, MongoDB, Redis, NATS
@@ -27,7 +32,11 @@ Bare-metal services bind `127.0.0.1` plus the Docker gateway IPs
 them via `host.docker.internal`. Each bare-metal service that binds a
 Docker gateway IP needs a systemd drop-in ordering it after
 `docker.service` — otherwise it boots before the bridge interfaces
-exist and silently falls back to localhost-only.
+exist and silently falls back to localhost-only. The container side of
+that name is NOT automatic on Linux: every Komodo deployment whose
+container uses `host.docker.internal` must pass
+`--add-host=host.docker.internal:host-gateway` in its extra args
+(hadron-server and hadrontool-ms-exchange both do).
 
 The Hetzner firewall blocks the database ports externally; access goes
 through SSH.

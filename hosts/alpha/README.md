@@ -44,3 +44,16 @@ endpoint on `127.0.0.1:8222`.
 `hadron-server` (:10300), `hadron-portal` (:10400), `hadron-cms`,
 plus Market Railz apps that must stay: `kcu`, `mrserver`, `tapco`.
 Traefik terminates TLS (Cloudflare full/strict) and routes by hostname.
+
+**Capability tools** (internal-only — no Traefik route, no published
+ports; hadron-server calls them by container name on `komodo_default`):
+
+- `hadrontool-pdf` (:8080 in-network) — stateless Markdown↔PDF.
+- `hadrontool-ms-exchange` (:8080 in-network) — Microsoft Exchange email
+  tool; owns the Postgres database `hadrontool_ms_exchange` (role
+  `hadrontool_msx`) on the bare-metal instance, reached via
+  `host.docker.internal` (its Komodo deployment passes
+  `--add-host=host.docker.internal:host-gateway`). Its `/webhooks/msgraph`
+  route will eventually need a public Traefik router + DNS (Graph change
+  notifications) — not yet configured. Deployment record:
+  Hadron node `hadronmemory.com::dev::ops:alpha:hadrontool-ms-exchange`.
