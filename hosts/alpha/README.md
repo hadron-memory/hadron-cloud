@@ -39,11 +39,19 @@ endpoint on `127.0.0.1:8222`.
 - `redis/` — systemd drop-in + the managed `bind` line
 - `backup/` — nightly Postgres dump script, service, timer
 - `komodo/` — Komodo resources-as-code (Procedures etc.), applied to the
-  live Komodo instance via a `ResourceSync` pointed at this repo/path.
-  Includes `alpha-docker-prune`, a nightly `PruneBuildx` + `PruneImages`
-  procedure — Komodo's build pipeline never prunes on its own, so build
-  cache/dangling images accumulate unbounded without this (see
-  `hadronmemory.com::dev::ops:alpha:docker-disk-cleanup`).
+  live Komodo instance via a `ResourceSync` (`alpha-procedures-sync`)
+  pointed at this repo/path. Includes `alpha-docker-prune`, a nightly
+  (03:00) `PruneBuildx` + `PruneImages` procedure — Komodo's build
+  pipeline never prunes on its own, so build cache/dangling images
+  accumulate unbounded without this (see
+  `hadronmemory.com::dev::ops:alpha:docker-disk-cleanup`). The
+  Procedure's own schedule runs regardless of sync state — the
+  `ResourceSync`'s webhook only controls how fast *edits to this TOML*
+  (e.g. a changed schedule or prune target) propagate to Komodo: with
+  the GitHub-side webhook configured, a push applies instantly;
+  otherwise Komodo picks it up on its next resource-poll interval
+  (`KOMODO_RESOURCE_POLL_INTERVAL`, 1hr) or via a manual "Run Sync" in
+  the dashboard. The GitHub-side webhook has not been verified/created.
 
 ## Apps (Docker, via Komodo)
 
