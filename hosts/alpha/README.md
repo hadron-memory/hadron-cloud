@@ -38,6 +38,12 @@ endpoint on `127.0.0.1:8222`.
 - `nats/` — `/etc/nats/nats-server.conf` + systemd drop-in
 - `redis/` — systemd drop-in + the managed `bind` line
 - `backup/` — nightly Postgres dump script, service, timer
+- `komodo/` — Komodo resources-as-code (Procedures etc.), applied to the
+  live Komodo instance via a `ResourceSync` pointed at this repo/path.
+  Includes `alpha-docker-prune`, a nightly `PruneBuildx` + `PruneImages`
+  procedure — Komodo's build pipeline never prunes on its own, so build
+  cache/dangling images accumulate unbounded without this (see
+  `hadronmemory.com::dev::ops:alpha:docker-disk-cleanup`).
 
 ## Apps (Docker, via Komodo)
 

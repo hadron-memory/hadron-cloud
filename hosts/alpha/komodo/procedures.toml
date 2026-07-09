@@ -1,0 +1,19 @@
+## Komodo Procedure resources for alpha, synced via ResourceSync from this repo.
+## See hosts/alpha/README.md for how these are wired up.
+
+[[procedure]]
+name = "alpha-docker-prune"
+description = "Nightly cleanup of unused Docker build cache and dangling images on alpha"
+
+[procedure.config]
+schedule = "Every day at 03:00"
+schedule_format = "English"
+schedule_enabled = true
+
+[[procedure.config.stage]]
+name = "Prune"
+enabled = true
+executions = [
+  { execution.type = "PruneBuildx", execution.params.server = "Local" },
+  { execution.type = "PruneImages", execution.params.server = "Local" },
+]
