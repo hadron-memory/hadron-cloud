@@ -29,11 +29,11 @@ Komodo deploy workflow at `~/komodo/setup.md` there — consult those for live o
 
 ## Use of Hadron
 
-No cloud-specific memory yet; operational knowledge lives in the shared `::dev` memory:
+No cloud-specific memory yet; operational knowledge lives in the shared `hrn:mem:hadronmemory.com:dev` memory:
 
-- `hrn:memory:hadronmemory.com::dev` — findings, conventions, and especially the **`ops`
-  branch** (incidents + runbooks, e.g. `ops:alpha:*`); start at `…::dev::preflight`.
-- `hrn:memory:hadronmemory.com::hadron-server` — the app this infra runs (deploy flow, env vars).
+- `hrn:mem:hadronmemory.com:dev` — findings, conventions, and especially the **`ops`
+  branch** (incidents + runbooks, e.g. `ops:alpha:*`); start at `hrn:node:hadronmemory.com:dev:preflight`.
+- `hrn:mem:hadronmemory.com:hadron-server` — the app this infra runs (deploy flow, env vars).
 
 Query Hadron before changing infra: `hadron_find_nodes` for the service/symptom, then
 `hadron_get_node`; cite `loc`. Capture a new incident or runbook immediately
