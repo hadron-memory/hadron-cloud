@@ -44,7 +44,7 @@ endpoint on `127.0.0.1:8222`.
   (03:00) `PruneBuildx` + `PruneImages` procedure — Komodo's build
   pipeline never prunes on its own, so build cache/dangling images
   accumulate unbounded without this (see
-  `hadronmemory.com::dev::ops:alpha:docker-disk-cleanup`). The
+  `hrn:node:hadronmemory.com:dev:ops:alpha:docker-disk-cleanup`). The
   Procedure's own schedule runs regardless of sync state — the
   `ResourceSync`'s webhook only controls how fast *edits to this TOML*
   (e.g. a changed schedule or prune target) propagate to Komodo: with
@@ -70,4 +70,4 @@ ports; hadron-server calls them by container name on `komodo_default`):
   `--add-host=host.docker.internal:host-gateway`). Its `/webhooks/msgraph`
   route will eventually need a public Traefik router + DNS (Graph change
   notifications) — not yet configured. Deployment record:
-  Hadron node `hadronmemory.com::dev::ops:alpha:hadrontool-ms-exchange`.
+  Hadron node `hrn:node:hadronmemory.com:dev:ops:alpha:hadrontool-ms-exchange`.
