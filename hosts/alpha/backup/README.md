@@ -27,6 +27,9 @@ and each dump passes `pg_restore -l`. The upload filters exclude leftover
 second run in the same minute refuses to overwrite completed files.
 After a hard kill or power loss, a hidden `.partial` file may remain; it is
 excluded from upload and can be removed after confirming no backup is running.
+An interruption between the two final-name links may leave a **complete**
+globals file without its matching dump; a later copy may upload that orphan
+globals file. Choose a restore pair by matching timestamps.
 
 The script then uploads the local set and only then prunes local files beyond
 the rolling seven-day window. An upload failure
@@ -131,6 +134,12 @@ columns (same caveat as `hadron-server`'s `db:dev-from-prod`).
 - **No failure alerting.** A failing run is only visible in `journalctl`.
   Cheapest fix: a healthchecks.io dead-man's-switch pinged at the end of
   `pg-backup.sh` (and `OnFailure=` on the unit).
+- **Existing final-named files need an operator audit before installation.**
+  This change cannot identify or repair a partial file written by the old
+  script. The next `rclone copy` still considers all matching final names.
+  Inspect existing dumps with `pg_restore -l` and investigate missing or
+  suspicious globals; quarantine suspect files before a new upload. The TOC
+  check is not a full restore test. No such audit is performed by this PR.
 - **Disk headroom.** On 2026-09-29, the seven-day local set occupied 51 GB
   and root disk was 68% used with 48 GB free. Monitor both as the DB grows;
   the earlier 5 GB estimate for local dumps is obsolete.
