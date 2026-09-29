@@ -62,10 +62,11 @@ final_files+=("$globals_out")
 sudo -u postgres pg_dumpall --globals-only > "$staged"
 
 # All producers and the TOC check have succeeded. Hard-link each complete
-# file into its final name without replacing an existing backup. The link is
-# atomic on this filesystem; an interrupted run leaves only excluded .partial
-# files, or complete final files that are safe for a later rclone copy.
-for i in "${!staged_files[@]}"; do
+# file into its final name without replacing an existing backup. Publish
+# globals first, so an interruption cannot leave a final dump without its
+# matching globals. Each link is atomic on this filesystem; incomplete
+# .partial files remain excluded from a later rclone copy.
+for ((i=${#staged_files[@]}-1; i>=0; i--)); do
   ln -- "${staged_files[$i]}" "${final_files[$i]}"
   rm -f -- "${staged_files[$i]}"
   echo "ok: ${final_files[$i]} ($(du -h "${final_files[$i]}" | cut -f1))"
