@@ -10,14 +10,14 @@
 #   Manual dumps following the same naming pattern age out too.
 # - Offsite: uploads dumps + globals to Hetzner Object Storage via rclone,
 #   then prunes remote objects older than OFFSITE_RETENTION_DAYS. The local
-#   backup completes and is pruned BEFORE upload, so a network/upload failure
-#   never endangers the local dump; it only makes the systemd unit report
-#   failure (visible in `journalctl -u pg-backup.service`).
+#   backup completes before upload; local pruning happens only after a
+#   successful upload, so an upload failure retains local dumps and makes
+#   the systemd unit report failure (visible in `journalctl -u pg-backup.service`).
 set -euo pipefail
 
 BACKUP_DIR=/root/backup
 DATABASES=(hadron)
-RETENTION_DAYS=14
+RETENTION_DAYS=7
 OFFSITE_RETENTION_DAYS=90
 HOST=alpha
 REMOTE="hetzner:hadron-internal/${HOST}"
@@ -37,10 +37,6 @@ done
 
 sudo -u postgres pg_dumpall --globals-only > "$BACKUP_DIR/globals-${HOST}-${TS}.sql"
 
-# --- Local retention -------------------------------------------------------
-find "$BACKUP_DIR" -maxdepth 1 \( -name "*-${HOST}-*.dump" -o -name "globals-${HOST}-*.sql" \) \
-  -mtime "+${RETENTION_DAYS}" -print -delete | sed 's/^/pruned: /' || true
-
 # --- Offsite upload to Hetzner Object Storage ------------------------------
 # Copy (not sync): never deletes remote objects to match the shorter local
 # window. rclone skips already-uploaded files by size, so this is also
@@ -49,6 +45,10 @@ rclone copy "$BACKUP_DIR" "$REMOTE/" \
   --include "*-${HOST}-*.dump" --include "globals-${HOST}-*.sql" \
   --transfers 4 --checkers 8
 echo "uploaded: $REMOTE/ (this run: ${TS})"
+
+# --- Local retention -------------------------------------------------------
+find "$BACKUP_DIR" -maxdepth 1 \( -name "*-${HOST}-*.dump" -o -name "globals-${HOST}-*.sql" \) \
+  -mmin "+$((RETENTION_DAYS * 1440))" -print -delete | sed 's/^/pruned: /' || true
 
 # --- Offsite retention -----------------------------------------------------
 # Same --include filters as the upload: never prune backups of other kinds

@@ -11,7 +11,7 @@ Infrastructure artifacts for the Hadron Memory platform
 | `hosts/alpha/` | Artifacts and runbook for the existing production host `alpha` (Hetzner ccx23, Debian 13, `5.78.186.49`). |
 | `hosts/alpha/nats/` | NATS server config + systemd drop-in (bare metal, apt). |
 | `hosts/alpha/redis/` | Redis config notes + systemd drop-in (bare metal, apt). |
-| `hosts/alpha/backup/` | Nightly Postgres backup script + systemd timer. |
+| `hosts/alpha/backup/` | Hourly Postgres backup script + systemd timer. |
 
 ## The alpha host
 
