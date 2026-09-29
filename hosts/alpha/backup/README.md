@@ -20,8 +20,16 @@ The two are complementary (PITR + portable logical dumps), not either/or.
 | Local | `/root/backup/` | 7 days | `find -mmin +10080` in `pg-backup.sh` |
 | Offsite | `hetzner:hadron-internal/alpha/` | 90 days | `rclone delete --min-age 90d` in `pg-backup.sh` |
 
-The script verifies the new dump, uploads the local set, and only then
-prunes local files beyond the rolling seven-day window. An upload failure
+The script writes dumps and globals to hidden `.partial` files in the backup
+directory. It publishes their final names only after both producers succeed
+and each dump passes `pg_restore -l`. The upload filters exclude leftover
+`.partial` files if a run is interrupted; ordinary failures remove them. A
+second run in the same minute refuses to overwrite completed files.
+After a hard kill or power loss, a hidden `.partial` file may remain; it is
+excluded from upload and can be removed after confirming no backup is running.
+
+The script then uploads the local set and only then prunes local files beyond
+the rolling seven-day window. An upload failure
 leaves the local files in place and fails the systemd unit. The offsite
 copy uses `rclone copy`, so shortening local retention does not delete
 older offsite backups before their separate 90-day cutoff.
@@ -78,6 +86,10 @@ scp hosts/alpha/backup/pg-backup.sh root@alpha:/usr/local/sbin/pg-backup.sh
 scp hosts/alpha/backup/pg-backup.{service,timer} root@alpha:/etc/systemd/system/
 ssh root@alpha 'chmod 755 /usr/local/sbin/pg-backup.sh && systemctl daemon-reload && systemctl enable --now pg-backup.timer'
 ```
+
+Before installing a change, run `bash hosts/alpha/backup/test-pg-backup.sh`
+locally. It stubs the Postgres and rclone commands in a temporary directory;
+it does not contact alpha or Object Storage.
 
 ## Operate
 
