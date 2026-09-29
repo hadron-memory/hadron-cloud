@@ -15,7 +15,7 @@ not an application** — there's no build/test step; changes here touch real inf
   cloud-init bootstrap. Stand up a new host per
   [tofu/hadron-host/README.md](tofu/hadron-host/README.md) (`tofu plan` before `tofu apply`).
 - `hosts/alpha/` — runbook + artifacts for the prod host (Hetzner ccx23, Debian 13).
-  `nats/`, `redis/`, `backup/` — bare-metal service config, systemd drop-ins, nightly Postgres backup.
+  `nats/`, `redis/`, `backup/` — bare-metal service config, systemd drop-ins, hourly Postgres backup.
 
 ## The alpha host (read the README first)
 

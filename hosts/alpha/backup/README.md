@@ -5,20 +5,26 @@
 `/root/backup/` with the `<db>-alpha-YYYY-MM-DD-HHMM` UTC naming
 convention, then uploaded offsite to **Hetzner Object Storage**.
 
-This is the platform's **baseline backup** today. For a ~54 MB DB at pilot
-scale an hourly full logical dump is cheap (seconds) and trivially
-restorable, so it stands on its own. pgBackRest **streaming** backups
+This is the platform's **baseline backup** today. The hourly logical dump
+is portable and has a documented restore procedure; a full restore test
+remains to be done. Dumps were about 360 MiB each on 2026-09-29, so local
+retention and disk headroom need monitoring. pgBackRest **streaming** backups
 (spec `001-pgbackrest-doppler` in `baragaun-cloud`) remain the planned
-*upgrade* — pursue them when the DB grows enough that full dumps get heavy,
-or when a sub-hour RPO / point-in-time recovery becomes a requirement.
+*upgrade* for sub-hour RPO and point-in-time recovery.
 The two are complementary (PITR + portable logical dumps), not either/or.
 
 ## Retention
 
 | Copy | Location | Retention | Pruned by |
 |---|---|---|---|
-| Local | `/root/backup/` | 14 days | `find -mtime +14` in `pg-backup.sh` |
+| Local | `/root/backup/` | 7 days | `find -mmin +10080` in `pg-backup.sh` |
 | Offsite | `hetzner:hadron-internal/alpha/` | 90 days | `rclone delete --min-age 90d` in `pg-backup.sh` |
+
+The script verifies the new dump, uploads the local set, and only then
+prunes local files beyond the rolling seven-day window. An upload failure
+leaves the local files in place and fails the systemd unit. The offsite
+copy uses `rclone copy`, so shortening local retention does not delete
+older offsite backups before their separate 90-day cutoff.
 
 Hetzner's nightly **server snapshots** (enabled separately) also capture
 `/root/backup` at daily granularity. The offsite leg here adds hourly
@@ -113,10 +119,9 @@ columns (same caveat as `hadron-server`'s `db:dev-from-prod`).
 - **No failure alerting.** A failing run is only visible in `journalctl`.
   Cheapest fix: a healthchecks.io dead-man's-switch pinged at the end of
   `pg-backup.sh` (and `OnFailure=` on the unit).
-- **Disk headroom.** The host root disk runs ~85% full; hourly × 14-day
-  local retention is ~5 GB. Now that everything is mirrored offsite for
-  90 days, local retention could be shortened (e.g. 2–3 days) to reclaim
-  space.
+- **Disk headroom.** On 2026-09-29, the seven-day local set occupied 51 GB
+  and root disk was 68% used with 48 GB free. Monitor both as the DB grows;
+  the earlier 5 GB estimate for local dumps is obsolete.
 - **MongoDB is not yet covered** (no `mongodump` timer).
 - **Host config** (Komodo/Traefik/certs under `/root/komodo/`) is not yet
   in any backup — easy add: tar it into the same job.
