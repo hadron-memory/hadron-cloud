@@ -17,25 +17,17 @@ The two are complementary (PITR + portable logical dumps), not either/or.
 
 | Copy | Location | Retention | Pruned by |
 |---|---|---|---|
-| Local | `/root/backup/` | 7 days | `find -mmin +10080` in `pg-backup.sh` |
-| Offsite | `hetzner:hadron-internal/alpha/` | 90 days | `rclone delete --min-age 90d` in `pg-backup.sh` |
+| Local | `/root/backup/` | **12 hours** (`RETENTION_HOURS=12`, since 2026-11-07) | `prune_local` in `pg-backup.sh`, on every exit |
+| Offsite hourly | `hetzner:baragaun-alpha-backups/hourly/` | 3 days | bucket lifecycle rule |
+| Offsite daily | `hetzner:baragaun-alpha-backups/daily/` | 30 days | bucket lifecycle rule |
+| Offsite weekly | `hetzner:baragaun-alpha-backups/weekly/` | 90 days | bucket lifecycle rule |
 
-The script writes dumps and globals to hidden `.partial` files in the backup
-directory. It publishes their final names only after both producers succeed
-and each dump passes `pg_restore -l`. The upload filters exclude leftover
-`.partial` files if a run is interrupted; ordinary failures remove them. A
-second run in the same minute refuses to overwrite completed files.
-After a hard kill or power loss, a hidden `.partial` file may remain; it is
-excluded from upload and can be removed after confirming no backup is running.
-An interruption between the two final-name links may leave a **complete**
-globals file without its matching dump; a later copy may upload that orphan
-globals file. Choose a restore pair by matching timestamps.
+- **Local prune guard.** A local dump or globals file older than `RETENTION_HOURS` is deleted only when the `hourly/` listing has an object of the same name and size. If the listing fails, every aged file is kept. Empty files are removed. The prune runs from the EXIT trap, so it also runs after a failed dump or upload.
+- **Off-site.** The script never deletes off-site objects; the bucket's lifecycle rules expire them. Each run uploads with `rclone copy --max-age 3h`, so a missed upload heals on the next run, but an old local file is never re-uploaded. The first run of each UTC day copies that run's files server-side to `daily/`, and on Sundays to `weekly/`.
+- **Why 12 hours.** On 2026-11-07 dumps were 1.4 GB each and two days of hourly dumps held 59 GB. The off-site tiers are the longer history, so local copies only cover the most recent half day (Holger, 2026-11-07).
+- **Operator flags.** `PG_BACKUP_PRUNE_ONLY=1` skips the dump and upload; `PG_BACKUP_PRUNE_DRY=1` prints `would-prune:` instead of deleting. `PG_BACKUP_DIR` overrides `/root/backup`.
 
-The script then uploads the local set and only then prunes local files beyond
-the rolling seven-day window. An upload failure
-leaves the local files in place and fails the systemd unit. The offsite
-copy uses `rclone copy`, so shortening local retention does not delete
-older offsite backups before their separate 90-day cutoff.
+> **Not staged (finding, 2026-11-07).** The live script writes each dump and the globals file **directly to its final name**. The `.partial` staging, the publish-by-hard-link and the same-minute overwrite refusal from #8 are not in the script running on alpha, so a dump that fails or is interrupted leaves a truncated file under a final name, and the next run's `rclone copy` may upload it. `pg_restore -l` still checks each dump, and a failure fails the unit. `test-pg-backup.sh` encodes #8's behavior and fails against this script; it is the acceptance test for restoring the staging.
 
 Hetzner's nightly **server snapshots** (enabled separately) also capture
 `/root/backup` at daily granularity. The offsite leg here adds hourly
@@ -74,8 +66,7 @@ region = nbg1
 acl = private
 ```
 
-Bucket `hadron-internal` must exist (created in the Hetzner console);
-objects land under `alpha/`.
+Bucket `baragaun-alpha-backups` must exist (created in the Hetzner console, 2026-10-28) with lifecycle rules expiring `hourly/` after 3 days, `daily/` after 30 and `weekly/` after 90. The old bucket `hadron-internal/alpha/` is no longer written.
 
 > **Note — same-provider offsite leg.** alpha is itself a Hetzner host, so
 > Hetzner Object Storage shares the provider. That's an accepted convenience
@@ -100,7 +91,8 @@ it does not contact alpha or Object Storage.
 ssh root@alpha systemctl start pg-backup.service        # run now
 ssh root@alpha systemctl list-timers pg-backup.timer    # next run
 ssh root@alpha journalctl -u pg-backup.service -n 30    # last log
-ssh root@alpha 'rclone ls hetzner:hadron-internal/alpha/ | tail'   # offsite contents
+ssh root@alpha 'rclone ls hetzner:baragaun-alpha-backups/hourly/ | tail'   # offsite contents
+ssh root@alpha PG_BACKUP_PRUNE_ONLY=1 PG_BACKUP_PRUNE_DRY=1 /usr/local/sbin/pg-backup.sh   # what the local prune would delete
 ```
 
 ## Restore
@@ -112,7 +104,7 @@ drop to `postgres` (same trick the backup script uses).
 
 ```bash
 # If restoring from offsite, pull the dump into /root/backup first:
-ssh root@alpha 'rclone copy hetzner:hadron-internal/alpha/hadron-alpha-<TS>.dump /root/backup/'
+ssh root@alpha 'rclone copy hetzner:baragaun-alpha-backups/hourly/hadron-alpha-<TS>.dump /root/backup/'   # or daily/, weekly/
 
 # Inspect the TOC
 sudo -u postgres pg_restore -l < /root/backup/hadron-alpha-<TS>.dump | head
@@ -140,9 +132,7 @@ columns (same caveat as `hadron-server`'s `db:dev-from-prod`).
   Inspect existing dumps with `pg_restore -l` and investigate missing or
   suspicious globals; quarantine suspect files before a new upload. The TOC
   check is not a full restore test. No such audit is performed by this PR.
-- **Disk headroom.** On 2026-09-29, the seven-day local set occupied 51 GB
-  and root disk was 68% used with 48 GB free. Monitor both as the DB grows;
-  the earlier 5 GB estimate for local dumps is obsolete.
+- **Disk headroom.** On 2026-11-07, two days of hourly dumps (1.4 GB each) held 59 GB with the root disk at 80%. That prompted the 12-hour local retention. The local set now grows only with dump size, about 12 × the dump size. The host manager's prod-health tick reports above 85%.
 - **MongoDB is not yet covered** (no `mongodump` timer).
 - **Host config** (Komodo/Traefik/certs under `/root/komodo/`) is not yet
   in any backup — easy add: tar it into the same job.
