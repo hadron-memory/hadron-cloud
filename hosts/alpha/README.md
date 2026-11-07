@@ -38,6 +38,7 @@ endpoint on `127.0.0.1:8222`.
 - `nats/` — `/etc/nats/nats-server.conf` + systemd drop-in
 - `redis/` — systemd drop-in + the managed `bind` line
 - `backup/` — hourly Postgres dump script, service, timer
+- `container-logs/` — the json-file size limit every Komodo deployment carries, and which containers still lack it
 - `komodo/` — Komodo resources-as-code (Procedures etc.), applied to the
   live Komodo instance via a `ResourceSync` (`alpha-procedures-sync`)
   pointed at this repo/path. Includes `alpha-docker-prune`, a nightly
