@@ -34,3 +34,5 @@ Set `extra_args` back to the "before" line above in Komodo (UI, or `UpdateDeploy
 ## Verify on the first deploy after the change
 
 `docker inspect -f '{{json .HostConfig.LogConfig}}' hadron-server` shows `{"Type":"journald","Config":{"tag":"hadron-server"}}`; `journalctl -t hadron-server` has the new container's boot lines; after the deploy, the outgoing container's lines are still readable by its `CONTAINER_ID`.
+
+**Verified 2026-11-11 06:28Z (Otto, read only).** The first deploy after the change booted at 23:44Z and the logs have been on journald since. The running container (0.0.1918) shows the LogConfig above. `docker logs` and `journalctl -t hadron-server` both work. The journal holds the lines of 22 containers that have since been removed, and they are still readable by `CONTAINER_ID`.
